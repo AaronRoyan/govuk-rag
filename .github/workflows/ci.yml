@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      FASTEMBED_CACHE_PATH: ~/.cache/fastembed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src evals tests && ruff format --check src evals tests
+      - run: pytest -q
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/fastembed
+          key: fastembed-${{ hashFiles('src/govrag/retrieve.py') }}
+      - name: Retrieval regression gate
+        run: python evals/run_retrieval.py --check evals/baseline.json --tolerance 0.03
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retrieval-results
+          path: evals/results/retrieval.md
